@@ -1,0 +1,18 @@
+version: '3.7'
+
+services:
+  proxy:
+    image: ghcr.io/armandmgt/exposed
+    volumes:
+      - ./conf/production.json:/app/conf/production.json
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=d${POSTGRES_PASSWORD}
+      - POSTGRES_DB=expose
+    volumes:
+      - db_data:/var/run/postgresql/data
+
+volumes:
+  db_data:

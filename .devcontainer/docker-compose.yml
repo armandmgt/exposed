@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    extra_hosts:
+      - "proxy.armandmgt.me:127.0.0.1"
+      - "test.proxy.armandmgt.me:127.0.0.1"
+      - "test2.proxy.armandmgt.me:127.0.0.1"
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_AUTH_METHOD=trust
+      - POSTGRES_USER=dev
+      - POSTGRES_PASSWORD=dev
+      - POSTGRES_DB=expose
+    volumes:
+      - db_data:/var/run/postgresql/data
+
+volumes:
+  db_data:

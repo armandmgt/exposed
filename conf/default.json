@@ -1,0 +1,20 @@
+{
+  "database": {
+    "url": "postgres://dummy"
+  },
+  "http": {
+    "url": "http://proxy.armandmgt.me:8080",
+    "bind_addr": "127.0.0.1",
+    "bind_port": 8080,
+    "secure": false,
+    "secret": "",
+    "vhost_suffix": ".proxy.armandmgt.me"
+  },
+  "sshd": {
+    "server_port": "2222",
+    "server_key": ""
+  },
+  "files": {
+    "static_dir": "static"
+  }
+}

@@ -1,0 +1,20 @@
+{
+	"name": "Rust",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "dev",
+	"overrideCommand": true,
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"vadimcn.vscode-lldb",
+				"ms-azuretools.vscode-docker",
+				"humao.rest-client"
+			]
+		}
+	},
+	"forwardPorts": [
+		8080
+	],
+	"remoteUser": "root"
+}
