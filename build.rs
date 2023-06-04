@@ -1,6 +1,8 @@
 use std::{io, process::Command};
 
 fn main() -> io::Result<()> {
+    std::fs::create_dir_all("static")?;
+    Command::new("yarn").args(["install"]).status()?;
     Command::new("yarn").args(["run", "build"]).status()?;
     println!("cargo:rerun-if-changed=tailwind.css");
     println!("cargo:rerun-if-changed=package.json");
