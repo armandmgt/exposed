@@ -33,6 +33,19 @@ impl Connection {
         Ok(())
     }
 
+    pub async fn save(&self, pool: &PgPool) -> Result<()> {
+        // language=PostgresSQL
+        sqlx::query("UPDATE connections SET (subdomain, proxy_port, proxied_port) = ($2, $3, $4) WHERE id = $1")
+            .bind(self.id)
+            .bind(&self.subdomain)
+            .bind(&self.proxy_port)
+            .bind(&self.proxied_port)
+            .execute(pool)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn get_all(pool: &PgPool) -> Result<Vec<Self>> {
         // language=PostgreSQL
         sqlx::query_as("SELECT * FROM connections")

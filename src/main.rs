@@ -1,7 +1,7 @@
 mod controllers;
+mod dto;
 mod errors;
 mod models;
-mod dto;
 mod settings;
 mod sshd;
 mod util;
@@ -53,9 +53,10 @@ async fn main() -> Result<()> {
         .await?;
     sqlx::migrate!().run(&db_pool).await?;
 
+    let sshd_server = sshd::Server::new(settings.clone(), db_pool.clone())?;
+
     let shared_settings = web::Data::new(settings.clone());
     let db_pool = web::Data::new(db_pool);
-    let sshd_server = sshd::Server::new(&settings.sshd)?;
 
     let server = HttpServer::new(move || {
         App::new()

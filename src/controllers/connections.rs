@@ -30,7 +30,10 @@ pub async fn index(db: web::Data<PgPool>) -> AppResponse {
 }
 
 #[post("")]
-pub async fn create(db: web::Data<PgPool>, params: web::Json<dto::connection::Create>) -> AppResponse {
+pub async fn create(
+    db: web::Data<PgPool>,
+    params: web::Json<dto::connection::Create>,
+) -> AppResponse {
     let connection = Connection::new(params.subdomain.clone(), params.proxied_port.clone());
     connection.insert(&db).await?;
     let connection_view = dto::connection::View::new(

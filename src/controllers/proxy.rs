@@ -3,6 +3,7 @@ use crate::errors::AppResponse;
 use crate::models::connection::Connection;
 use crate::settings::Settings;
 use crate::util;
+use crate::util::extract_subdomain;
 use crate::util::wildcard_host_guard::get_host_uri;
 use actix_web::http::header::HeaderMap;
 use actix_web::http::header::HeaderName;
@@ -98,11 +99,8 @@ pub async fn process(
     let host = get_host_uri(req.head())
         .context("Could parse Host")?
         .to_string();
-    let host_without_port = host.split(':').next().context("Could not get subdomain")?;
-    let Some(subdomain) = host_without_port.strip_suffix(&*settings.http.vhost_suffix) else {
-        return Ok(HttpResponse::NotFound().finish())
-    };
-    let connection = Connection::get_by_subdomain(&db, subdomain)
+    let subdomain = extract_subdomain(&host, &settings)?;
+    let connection = Connection::get_by_subdomain(&db, &subdomain)
         .await
         .map_err(|_| AppError::NotFound)?;
     if connection.proxy_port.is_none() {

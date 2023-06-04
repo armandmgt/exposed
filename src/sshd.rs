@@ -6,17 +6,22 @@ use russh::{
     server::{self, Auth, Handle, Session},
     ChannelMsg,
 };
+use sqlx::PgPool;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
-use crate::{errors::StaticError, settings};
+use crate::{
+    errors::StaticError, models::connection::Connection, settings::Settings,
+    util::extract_subdomain,
+};
 
 pub struct Server {
     config: Arc<russh::server::Config>,
-    server_port: u16,
+    settings: Arc<Settings>,
     server_pubkey: Arc<russh_keys::key::PublicKey>,
     id: usize,
+    db: Arc<PgPool>,
     tcpip_forward_listener: Option<tokio::task::JoinHandle<Result<(), StaticError>>>,
 }
 
@@ -24,30 +29,32 @@ impl Clone for Server {
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
-            server_port: self.server_port,
+            settings: self.settings.clone(),
             server_pubkey: self.server_pubkey.clone(),
             id: self.id,
+            db: self.db.clone(),
             tcpip_forward_listener: None,
         }
     }
 }
 
 impl Server {
-    pub fn new(sshd_settings: &settings::Sshd) -> Result<Self, StaticError> {
-        let server_key = russh_keys::decode_secret_key(&sshd_settings.server_key, None)?;
-        let server_pubkey = Arc::new(server_key.clone_public_key()?);
+    pub fn new(settings: Settings, db: PgPool) -> Result<Self, StaticError> {
+        let server_key = russh_keys::decode_secret_key(&settings.sshd.server_key, None)?;
+        let pub_key = server_key.clone_public_key()?;
         let config = russh::server::Config {
             methods: russh::MethodSet::PASSWORD,
             connection_timeout: Some(Duration::from_secs(3600)),
             keys: vec![server_key],
             ..russh::server::Config::default()
         };
-        let config = Arc::new(config);
+
         Ok(Self {
-            config,
-            server_port: sshd_settings.server_port,
-            server_pubkey,
+            config: Arc::new(config),
+            settings: Arc::new(settings),
+            server_pubkey: Arc::new(pub_key),
             id: 0,
+            db: Arc::new(db),
             tcpip_forward_listener: None,
         })
     }
@@ -58,9 +65,9 @@ impl Server {
             self.server_pubkey.fingerprint()
         );
 
-        let server_port = format!("0.0.0.0:{}", self.server_port);
+        let bind_addr = format!("0.0.0.0:{}", self.settings.sshd.server_port);
         tokio::select! {
-            res = russh::server::run(self.config.clone(), server_port, self) => {
+            res = russh::server::run(self.config.clone(), bind_addr, self) => {
                 res.map_err(Into::into)
             },
             _ = cancellation_token.cancelled() => {
@@ -82,7 +89,7 @@ impl server::Server for Server {
 
 #[async_trait]
 impl server::Handler for Server {
-    type Error = StaticError;
+    type Error = anyhow::Error;
 
     async fn auth_password(
         self,
@@ -99,11 +106,17 @@ impl server::Handler for Server {
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
         debug!("tcpip_forward: {address} {port}");
+        let subdomain = extract_subdomain(address, &self.settings)?;
+        let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
 
         let listener = tokio::net::TcpListener::bind(format!("{address}:{port}")).await?;
         let address = address.to_owned();
         let listen_addr = listener.local_addr()?;
         *port = listen_addr.port().into();
+
+        connection.proxy_port = Some(port.to_string());
+        connection.save(&self.db).await?;
+
         let client_handle = session.handle();
         self.tcpip_forward_listener = Some(tokio::task::spawn(async move {
             while let Ok((tcp_stream, addr)) = listener.accept().await {
