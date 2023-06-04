@@ -38,8 +38,6 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -49,6 +47,8 @@ jobs:
           context: .
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            ARCH=x86_64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
