@@ -4,7 +4,6 @@ mod proxy;
 use crate::errors::AppResponse;
 use crate::settings::Settings;
 use crate::views::Index;
-use actix_files as fs;
 use actix_web::{get, web, HttpResponse};
 use askama::Template;
 
@@ -17,8 +16,7 @@ pub async fn index() -> AppResponse {
 }
 
 pub fn urls(settings: &Settings, cfg: &mut web::ServiceConfig) {
-    cfg.service(index)
-        .configure(|cfg| connections::urls(settings, cfg))
+    cfg.configure(|cfg| connections::urls(settings, cfg))
         .configure(|cfg| proxy::urls(settings, cfg))
-        .service(fs::Files::new("/static", &settings.files.static_dir));
+        .service(index);
 }

@@ -2,7 +2,6 @@ use anyhow::Result;
 use config::Config;
 use serde::Deserialize;
 use std::env;
-use std::path::PathBuf;
 use url::Url;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -27,16 +26,10 @@ pub struct Sshd {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Files {
-    pub static_dir: PathBuf,
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub database: Database,
     pub http: Http,
     pub sshd: Sshd,
-    pub files: Files,
 }
 
 impl Settings {
