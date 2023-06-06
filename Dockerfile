@@ -42,7 +42,6 @@ ARG ARCH
 COPY --from=builder /usr/src/app/conf/default.json /app/conf/default.json
 COPY --from=builder /usr/src/app/migrations/ /app/migrations/
 COPY --from=builder /usr/src/app/templates/ /app/templates/
-COPY --from=builder /usr/src/app/static/ /app/static/
 COPY --from=builder /usr/src/app/target/${ARCH}-unknown-linux-musl/release/exposed /usr/bin/exposed
 
 ENTRYPOINT [ "/usr/bin/exposed" ]
