@@ -13,13 +13,18 @@ use crate::{
     util::extract_subdomain,
 };
 
+struct TcpIpForwardTask {
+    cancellation_token: CancellationToken,
+    join_handle: tokio::task::JoinHandle<Result<()>>,
+}
+
 pub struct Server {
     config: Arc<russh::server::Config>,
     settings: Arc<Settings>,
     server_pubkey: Arc<russh_keys::key::PublicKey>,
     id: usize,
     db: Arc<PgPool>,
-    tcpip_forward_listener: Option<tokio::task::JoinHandle<Result<(), StaticError>>>,
+    tcpip_forward_task: Option<TcpIpForwardTask>,
 }
 
 impl Clone for Server {
@@ -30,7 +35,7 @@ impl Clone for Server {
             server_pubkey: self.server_pubkey.clone(),
             id: self.id,
             db: self.db.clone(),
-            tcpip_forward_listener: None,
+            tcpip_forward_task: None,
         }
     }
 }
@@ -52,7 +57,7 @@ impl Server {
             server_pubkey: Arc::new(pub_key),
             id: 0,
             db: Arc::new(db),
-            tcpip_forward_listener: None,
+            tcpip_forward_task: None,
         })
     }
 
@@ -115,19 +120,51 @@ impl server::Handler for Server {
         connection.save(&self.db).await?;
 
         let client_handle = session.handle();
-        self.tcpip_forward_listener = Some(tokio::task::spawn(async move {
-            while let Ok((tcp_stream, addr)) = listener.accept().await {
-                tokio::task::spawn(tcpip_forward_stream_handler(
-                    address.clone(),
-                    listen_addr.port(),
-                    client_handle.clone(),
-                    tcp_stream,
-                    addr,
-                ));
+        let cancellation_token = CancellationToken::new();
+        let task_token = cancellation_token.clone();
+        let join_handle = tokio::task::spawn(async move {
+            loop {
+                tokio::select! {
+                    accept = listener.accept() => {
+                        match accept {
+                            Ok((tcp_stream, addr)) => {
+                                tokio::task::spawn(tcpip_forward_stream_handler(
+                                    address.clone(),
+                                    listen_addr.port(),
+                                    client_handle.clone(),
+                                    tcp_stream,
+                                    addr,
+                                ));
+                            }
+                            Err(e) => { return Err(e.into()); }
+                        }
+                    },
+                    _ = task_token.cancelled() => {
+                        return Ok(());
+                    }
+                }
             }
-            Ok(())
-        }));
+        });
+        self.tcpip_forward_task = Some(TcpIpForwardTask {
+            cancellation_token,
+            join_handle,
+        });
         Ok((self, true, session))
+    }
+
+    async fn cancel_tcpip_forward(
+        mut self,
+        _address: &str,
+        _port: u32,
+        session: Session,
+    ) -> Result<(Self, bool, Session), Self::Error> {
+        if let Some(forward_task) = self.tcpip_forward_task.take() {
+            forward_task.cancellation_token.cancel();
+            forward_task.join_handle.await??;
+            Ok((self, true, session))
+        } else {
+            Ok((self, false, session))
+        }
     }
 }
 
