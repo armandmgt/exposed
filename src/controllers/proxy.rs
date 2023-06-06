@@ -137,9 +137,9 @@ pub async fn process(
 pub fn urls(settings: &Settings, cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("")
-            .guard(util::wildcard_host_guard::WildcardHost(
-                settings.http.vhost_suffix.clone(),
-            ))
+            .guard(util::wildcard_host_guard::WildcardHostGuard {
+                host: settings.http.vhost_suffix.clone(),
+            })
             .default_service(web::to(process)),
     );
 }

@@ -1,13 +1,7 @@
 use actix_web::dev::RequestHead;
 use actix_web::guard::{Guard, GuardContext};
 use actix_web::http::{header, Uri};
-
-#[allow(non_snake_case)]
-pub fn WildcardHost(host: impl AsRef<str>) -> WildcardHostGuard {
-    WildcardHostGuard {
-        host: host.as_ref().to_string(),
-    }
-}
+use tracing::debug;
 
 pub fn get_host_uri(req: &RequestHead) -> Option<Uri> {
     req.headers
@@ -19,19 +13,17 @@ pub fn get_host_uri(req: &RequestHead) -> Option<Uri> {
 
 #[doc(hidden)]
 pub struct WildcardHostGuard {
-    host: String,
+    pub host: String,
 }
 
 impl Guard for WildcardHostGuard {
     fn check(&self, ctx: &GuardContext<'_>) -> bool {
+        debug!("wildcard_host_guard: head() {:?}", ctx.head());
         let Some(req_host_uri) = get_host_uri(ctx.head()) else {
             return false;
         };
 
-        match req_host_uri.host() {
-            Some(uri_host) if uri_host.ends_with(&*self.host) => {}
-            _ => return false,
-        }
-        true
+        debug!("wildcard_host_guard: uri_host.host() {:?}", req_host_uri.host());
+        matches!(req_host_uri.host(), Some(uri_host) if uri_host.ends_with(&*self.host))
     }
 }
