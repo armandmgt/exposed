@@ -111,7 +111,7 @@ impl server::Handler for Server {
         let subdomain = extract_subdomain(address, &self.settings)?;
         let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
 
-        let listener = tokio::net::TcpListener::bind(format!("{address}:{port}")).await.map_err(|e| {
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await.map_err(|e| {
             debug!("{e:?}");
             e
         })?;
