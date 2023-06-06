@@ -111,13 +111,22 @@ impl server::Handler for Server {
         let subdomain = extract_subdomain(address, &self.settings)?;
         let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
 
-        let listener = tokio::net::TcpListener::bind(format!("{address}:{port}")).await?;
+        let listener = tokio::net::TcpListener::bind(format!("{address}:{port}")).await.map_err(|e| {
+            debug!("{e:?}");
+            e
+        })?;
         let address = address.to_owned();
-        let listen_addr = listener.local_addr()?;
+        let listen_addr = listener.local_addr().map_err(|e| {
+            debug!("{e:?}");
+            e
+        })?;
         *port = listen_addr.port().into();
 
         connection.proxy_port = Some(port.to_string());
-        connection.save(&self.db).await?;
+        connection.save(&self.db).await.map_err(|e| {
+            debug!("{e:?}");
+            e
+        })?;
 
         let client_handle = session.handle();
         let cancellation_token = CancellationToken::new();
