@@ -1,10 +1,8 @@
+use crate::connections::models::Connection;
 use crate::errors::AppError;
 use crate::errors::AppResponse;
-use crate::models::connection::Connection;
 use crate::settings::Settings;
-use crate::util;
 use crate::util::extract_subdomain;
-use crate::util::wildcard_host_guard::get_host_uri;
 use actix_web::http::header::HeaderMap;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::CONNECTION;
@@ -22,6 +20,9 @@ use anyhow::Context;
 use anyhow::Result;
 use sqlx::PgPool;
 use std::time::Duration;
+
+use super::wildcard_host_guard;
+use super::wildcard_host_guard::get_host_uri;
 
 const HOP_BY_HOP_HEADERS: [HeaderName; 6] = [
     CONNECTION,
@@ -137,7 +138,7 @@ pub async fn process(
 pub fn urls(settings: &Settings, cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("")
-            .guard(util::wildcard_host_guard::WildcardHostGuard {
+            .guard(wildcard_host_guard::WildcardHostGuard {
                 host: settings.http.vhost_suffix.clone(),
             })
             .default_service(web::to(process)),

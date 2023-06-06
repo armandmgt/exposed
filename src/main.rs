@@ -1,11 +1,10 @@
-mod controllers;
-mod dto;
+mod connections;
 mod errors;
-mod models;
+mod home;
+mod proxy;
 mod settings;
 mod sshd;
 mod util;
-mod views;
 
 use actix_web::middleware::TrailingSlash::Trim;
 use actix_web::{middleware, web, App, HttpServer};
@@ -67,7 +66,9 @@ async fn main() -> Result<()> {
                 r#"%a %{X-Real-IP}i %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" %T"#,
             ))
             .wrap(middleware::Compress::default())
-            .configure(|cfg| controllers::urls(&shared_settings, cfg))
+            .configure(|cfg| home::controller::urls(&shared_settings, cfg))
+            .configure(|cfg| connections::controller::urls(&shared_settings, cfg))
+            .configure(|cfg| proxy::controller::urls(&shared_settings, cfg))
     })
     .disable_signals()
     .bind((

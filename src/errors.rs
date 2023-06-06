@@ -1,18 +1,26 @@
-use crate::views::Error as ViewError;
 use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 use actix_web::ResponseError;
 use askama::Template;
+use derive_more::Constructor;
 use std::fmt::Debug;
 use thiserror::Error;
 use tokio::task::JoinError;
 use tracing::error;
 
+#[derive(Template, Constructor)]
+#[template(path = "errors.html")]
+pub struct ErrorView<'a> {
+    pub title: &'a str,
+    pub code: i32,
+    pub msg: &'a str,
+}
+
 fn internal_server_error(e: &dyn std::error::Error) -> HttpResponse {
     error!("Internal server error: {:#?}", e);
     let mut res = HttpResponse::InternalServerError();
     res.content_type("text/html");
-    let template = ViewError::new("Internal Server Error", 500, "Internal Server Error.");
+    let template = ErrorView::new("Internal Server Error", 500, "Internal Server Error.");
     let Ok(body) = template.render() else {
         return res.finish();
     };
@@ -23,7 +31,7 @@ fn unprocessable_entity(msg: &str) -> HttpResponse {
     error!("Unprocessable_entity: {:#?}", msg);
     let mut res = HttpResponse::UnprocessableEntity();
     res.content_type("text/html");
-    let template = ViewError::new("Unprocessable Entity", 422, msg);
+    let template = ErrorView::new("Unprocessable Entity", 422, msg);
     let Ok(body) = template.render() else {
         return res.finish();
     };
@@ -60,7 +68,7 @@ impl ResponseError for AppError {
                 let mut res = HttpResponse::NotFound();
                 res.content_type("text/html");
                 let template =
-                    ViewError::new("Error 404", 404, "The page you visited was not found.");
+                    ErrorView::new("Error 404", 404, "The page you visited was not found.");
                 let Ok(body) = template.render() else {
                     return res.finish();
                 };

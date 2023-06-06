@@ -23,7 +23,10 @@ impl Guard for WildcardHostGuard {
             return false;
         };
 
-        debug!("wildcard_host_guard: uri_host.host() {:?}", req_host_uri.host());
+        debug!(
+            "wildcard_host_guard: uri_host.host() {:?}",
+            req_host_uri.host()
+        );
         matches!(req_host_uri.host(), Some(uri_host) if uri_host.ends_with(&*self.host))
     }
 }

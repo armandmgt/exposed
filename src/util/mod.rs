@@ -2,8 +2,6 @@ use anyhow::{anyhow, Context, Result};
 
 use crate::settings::Settings;
 
-pub mod wildcard_host_guard;
-
 pub fn extract_subdomain(host: &str, settings: &Settings) -> Result<String> {
     let host_without_port = host.split(':').next().context("Could not get subdomain")?;
 

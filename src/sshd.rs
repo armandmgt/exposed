@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
 use crate::{
-    errors::StaticError, models::connection::Connection, settings::Settings,
+    connections::models::Connection, errors::StaticError, settings::Settings,
     util::extract_subdomain,
 };
 
@@ -111,10 +111,12 @@ impl server::Handler for Server {
         let subdomain = extract_subdomain(address, &self.settings)?;
         let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
 
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await.map_err(|e| {
-            debug!("{e:?}");
-            e
-        })?;
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+            .await
+            .map_err(|e| {
+                debug!("{e:?}");
+                e
+            })?;
         let address = address.to_owned();
         let listen_addr = listener.local_addr().map_err(|e| {
             debug!("{e:?}");

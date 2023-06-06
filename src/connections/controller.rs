@@ -1,12 +1,11 @@
-use crate::dto;
 use crate::errors::AppResponse;
-use crate::models::connection::Connection;
 use crate::settings::Settings;
-use crate::views::connections;
 use actix_web::{delete, get, guard, post, web, HttpResponse};
 use anyhow::Context;
 use sqlx::PgPool;
 use uuid::Uuid;
+
+use super::{dto, models::Connection, views};
 
 #[get("")]
 pub async fn index(db: web::Data<PgPool>) -> AppResponse {
@@ -14,7 +13,7 @@ pub async fn index(db: web::Data<PgPool>) -> AppResponse {
     let connection_views = connections
         .into_iter()
         .map(|x| {
-            dto::connection::View::new(
+            dto::View::new(
                 x.id.to_string(),
                 x.subdomain,
                 x.proxied_port,
@@ -22,7 +21,7 @@ pub async fn index(db: web::Data<PgPool>) -> AppResponse {
             )
         })
         .collect();
-    let index_view = connections::IndexView::new(&connection_views);
+    let index_view = views::IndexView::new(&connection_views);
     let body = serde_json::to_string(&index_view)?;
     Ok(HttpResponse::Ok()
         .content_type("application/json")
@@ -30,19 +29,16 @@ pub async fn index(db: web::Data<PgPool>) -> AppResponse {
 }
 
 #[post("")]
-pub async fn create(
-    db: web::Data<PgPool>,
-    params: web::Json<dto::connection::Create>,
-) -> AppResponse {
+pub async fn create(db: web::Data<PgPool>, params: web::Json<dto::Create>) -> AppResponse {
     let connection = Connection::new(params.subdomain.clone(), params.proxied_port.clone());
     connection.insert(&db).await?;
-    let connection_view = dto::connection::View::new(
+    let connection_view = dto::View::new(
         connection.id.to_string(),
         connection.subdomain.clone(),
         connection.proxied_port.clone(),
         connection.upstream_port.clone(),
     );
-    let create_view = dto::connection::ShowView::new(connection_view);
+    let create_view = dto::ShowView::new(connection_view);
     let body = serde_json::to_string(&create_view)?;
     Ok(HttpResponse::Created()
         .content_type("application/json")
@@ -54,13 +50,13 @@ pub async fn delete(db: web::Data<PgPool>, path: web::Path<String>) -> AppRespon
     let uuid = Uuid::parse_str(&path.into_inner()).context("Failed to parse connection UUID")?;
     let connection = Connection::get(&db, &uuid).await?;
     connection.delete(&db).await?;
-    let connection_view = dto::connection::View::new(
+    let connection_view = dto::View::new(
         connection.id.to_string(),
         connection.subdomain.clone(),
         connection.proxied_port.clone(),
         connection.upstream_port.clone(),
     );
-    let delete_view = dto::connection::ShowView::new(connection_view);
+    let delete_view = dto::ShowView::new(connection_view);
     let body = serde_json::to_string(&delete_view)?;
     Ok(HttpResponse::Ok()
         .content_type("application/json")
