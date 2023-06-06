@@ -123,11 +123,13 @@ impl server::Handler for Server {
         let cancellation_token = CancellationToken::new();
         let task_token = cancellation_token.clone();
         let join_handle = tokio::task::spawn(async move {
+            debug!("Starting forward task");
             loop {
                 tokio::select! {
                     accept = listener.accept() => {
                         match accept {
                             Ok((tcp_stream, addr)) => {
+                                debug!("Accepted connection starting stream task");
                                 tokio::task::spawn(tcpip_forward_stream_handler(
                                     address.clone(),
                                     listen_addr.port(),
@@ -136,10 +138,14 @@ impl server::Handler for Server {
                                     addr,
                                 ));
                             }
-                            Err(e) => { return Err(e.into()); }
+                            Err(e) => {
+                                debug!("Error when accepting: {e:?}");
+                                return Err(e.into());
+                            }
                         }
                     },
                     _ = task_token.cancelled() => {
+                        debug!("Forward task cancelled");
                         return Ok(());
                     }
                 }
@@ -154,11 +160,17 @@ impl server::Handler for Server {
 
     async fn cancel_tcpip_forward(
         mut self,
-        _address: &str,
+        address: &str,
         _port: u32,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
+        debug!("cancel_tcpip_forward: cancelling");
         if let Some(forward_task) = self.tcpip_forward_task.take() {
+            let subdomain = extract_subdomain(address, &self.settings)?;
+            let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
+            connection.proxy_port = None;
+            connection.save(&self.db).await?;
+
             forward_task.cancellation_token.cancel();
             forward_task.join_handle.await??;
             Ok((self, true, session))
