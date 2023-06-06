@@ -2,12 +2,9 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use russh::{
-    server::{self, Auth, Handle, Session},
-    ChannelMsg,
-};
+use russh::server::{self, Auth, Handle, Session};
 use sqlx::PgPool;
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
@@ -120,7 +117,7 @@ impl server::Handler for Server {
         let client_handle = session.handle();
         self.tcpip_forward_listener = Some(tokio::task::spawn(async move {
             while let Ok((tcp_stream, addr)) = listener.accept().await {
-                tokio::task::spawn(handler_tcpip_forward_stream(
+                tokio::task::spawn(tcpip_forward_stream_handler(
                     address.clone(),
                     listen_addr.port(),
                     client_handle.clone(),
@@ -134,7 +131,7 @@ impl server::Handler for Server {
     }
 }
 
-async fn handler_tcpip_forward_stream(
+async fn tcpip_forward_stream_handler(
     local_addr: String,
     local_port: u16,
     client_handle: Handle,
@@ -143,7 +140,7 @@ async fn handler_tcpip_forward_stream(
 ) -> Result<()> {
     let (remote_addr, remote_port) = (addr.ip(), addr.port());
     debug!("handler_tcpip_forward_stream: {remote_addr} {remote_port} / {local_addr} {local_port}");
-    let mut channel = client_handle
+    let channel = client_handle
         .channel_open_forwarded_tcpip(
             local_addr.to_string(),
             local_port.into(),
@@ -151,38 +148,10 @@ async fn handler_tcpip_forward_stream(
             remote_port.into(),
         )
         .await?;
+    let mut channel = channel.into_stream();
 
-    let (read_half, write_half) = tcp_stream.split();
-
-    loop {
-        let mut buf: [u8; 512] = [0; 512];
-        tokio::select! {
-            _ = read_half.readable() => {
-                match read_half.try_read(&mut buf) {
-                    Ok(0) => {
-                        channel.eof().await?;
-                    },
-                    Ok(_) => {
-                        channel.data(&buf[..]).await?;
-                    },
-                    Err(e) => { return Err(e.into()); },
-                }
-            },
-            data = channel.wait() => {
-                match data {
-                    Some(ChannelMsg::Data { data }) => {
-                        match write_half.try_write(&data) {
-                            Ok(_) => {},
-                            Err(e) => return Err(e.into()),
-                        }
-                    },
-                    Some(ChannelMsg::Eof) => {
-                        tcp_stream.shutdown().await?;
-                        return Ok(());
-                    },
-                    Some(_) | None => { return Ok(()); },
-                }
-            }
-        };
-    }
+    tokio::io::copy_bidirectional(&mut tcp_stream, &mut channel)
+        .await
+        .and(Ok(()))
+        .map_err(Into::into)
 }

@@ -41,3 +41,6 @@ features = [
   "chrono",
   "json",
 ]
+
+[patch.crates-io]
+actix-http = { git = "https://github.com/armandmgt/actix-web" }
