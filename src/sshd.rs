@@ -6,7 +6,7 @@ use russh::server::{self, Auth, Handle, Session};
 use sqlx::PgPool;
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::{
     connections::models::Connection, errors::StaticError, settings::Settings,
@@ -107,40 +107,26 @@ impl server::Handler for Server {
         port: &mut u32,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
-        debug!("tcpip_forward: {address} {port}");
         let subdomain = extract_subdomain(address, &self.settings)?;
         let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
 
-        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
-            .await
-            .map_err(|e| {
-                debug!("{e:?}");
-                e
-            })?;
+        let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
         let address = address.to_owned();
-        let listen_addr = listener.local_addr().map_err(|e| {
-            debug!("{e:?}");
-            e
-        })?;
+        let listen_addr = listener.local_addr()?;
         *port = listen_addr.port().into();
 
         connection.proxy_port = Some(port.to_string());
-        connection.save(&self.db).await.map_err(|e| {
-            debug!("{e:?}");
-            e
-        })?;
+        connection.save(&self.db).await?;
 
         let client_handle = session.handle();
         let cancellation_token = CancellationToken::new();
         let task_token = cancellation_token.clone();
         let join_handle = tokio::task::spawn(async move {
-            debug!("Starting forward task");
             loop {
                 tokio::select! {
                     accept = listener.accept() => {
                         match accept {
                             Ok((tcp_stream, addr)) => {
-                                debug!("Accepted connection starting stream task");
                                 tokio::task::spawn(tcpip_forward_stream_handler(
                                     address.clone(),
                                     listen_addr.port(),
@@ -150,13 +136,11 @@ impl server::Handler for Server {
                                 ));
                             }
                             Err(e) => {
-                                debug!("Error when accepting: {e:?}");
                                 return Err(e.into());
                             }
                         }
                     },
                     _ = task_token.cancelled() => {
-                        debug!("Forward task cancelled");
                         return Ok(());
                     }
                 }
@@ -175,7 +159,6 @@ impl server::Handler for Server {
         _port: u32,
         session: Session,
     ) -> Result<(Self, bool, Session), Self::Error> {
-        debug!("cancel_tcpip_forward: cancelling");
         if let Some(forward_task) = self.tcpip_forward_task.take() {
             let subdomain = extract_subdomain(address, &self.settings)?;
             let mut connection = Connection::get_by_subdomain(&self.db, &subdomain).await?;
@@ -199,7 +182,6 @@ async fn tcpip_forward_stream_handler(
     addr: SocketAddr,
 ) -> Result<()> {
     let (remote_addr, remote_port) = (addr.ip(), addr.port());
-    debug!("handler_tcpip_forward_stream: {remote_addr} {remote_port} / {local_addr} {local_port}");
     let channel = client_handle
         .channel_open_forwarded_tcpip(
             local_addr.to_string(),
