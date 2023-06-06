@@ -3,6 +3,7 @@ use crate::errors::AppError;
 use crate::errors::AppResponse;
 use crate::settings::Settings;
 use crate::util::extract_subdomain;
+use actix_web::dev::RequestHead;
 use actix_web::http::header::HeaderMap;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::CONNECTION;
@@ -22,7 +23,7 @@ use sqlx::PgPool;
 use std::time::Duration;
 
 use super::wildcard_host_guard;
-use super::wildcard_host_guard::get_host_uri;
+use super::wildcard_host_guard::get_uri_host;
 
 const HOP_BY_HOP_HEADERS: [HeaderName; 6] = [
     CONNECTION,
@@ -35,10 +36,10 @@ const HOP_BY_HOP_HEADERS: [HeaderName; 6] = [
 
 static STATIC_X_FORWARDED_FOR: HeaderName = X_FORWARDED_FOR;
 
-fn forward_uri_value(connection: &Connection, req: &HttpRequest) -> Result<Uri> {
-    let mut forward_url_parts: Parts = req.uri().clone().into();
+fn forward_uri_value(connection: &Connection, req_uri: &Uri) -> Result<Uri> {
+    let mut uri_parts = req_uri.clone().into_parts();
 
-    forward_url_parts.scheme = Some("http".parse()?);
+    uri_parts.scheme = Some("http".parse()?);
     let proxy_host = format!(
         "localhost:{}",
         connection
@@ -46,8 +47,8 @@ fn forward_uri_value(connection: &Connection, req: &HttpRequest) -> Result<Uri> 
             .as_ref()
             .context("No proxy port available for connection")?
     );
-    forward_url_parts.authority = Some(proxy_host.parse()?);
-    Uri::try_from(forward_url_parts).context("Failed creating proxy URI from parts")
+    uri_parts.authority = Some(proxy_host.parse()?);
+    Uri::try_from(uri_parts).context("Failed creating proxy URI from parts")
 }
 
 fn x_forwarded_for_value(req: &HttpRequest) -> String {
@@ -97,7 +98,7 @@ pub async fn process(
     db: web::Data<PgPool>,
     settings: web::Data<Settings>,
 ) -> AppResponse {
-    let host = get_host_uri(req.head())
+    let host = get_uri_host(req.head())
         .context("Could parse Host")?
         .to_string();
     let subdomain = extract_subdomain(&host, &settings)?;
@@ -111,8 +112,8 @@ pub async fn process(
     let mut forward_req = awc::Client::new()
         .request_from(req.uri(), req.head())
         .no_decompress()
-        .timeout(Duration::from_secs(60))
-        .uri(forward_uri_value(&connection, &req)?)
+        .timeout(Duration::from_secs(10))
+        .uri(forward_uri_value(&connection, &req.uri())?)
         .insert_header_if_none((actix_web::http::header::USER_AGENT, ""))
         .append_header((X_FORWARDED_FOR, x_forwarded_for_value(&req)));
 

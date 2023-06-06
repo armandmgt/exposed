@@ -1,14 +1,14 @@
 use actix_web::dev::RequestHead;
 use actix_web::guard::{Guard, GuardContext};
-use actix_web::http::{header, Uri};
+use actix_web::http::header;
 use tracing::debug;
 
-pub fn get_host_uri(req: &RequestHead) -> Option<Uri> {
+pub fn get_uri_host(req: &RequestHead) -> Option<String> {
     req.headers
         .get(header::HOST)
         .and_then(|host_value| host_value.to_str().ok())
         .or_else(|| req.uri.host())
-        .and_then(|host| host.parse().ok())
+        .map(ToOwned::to_owned)
 }
 
 #[doc(hidden)]
@@ -19,14 +19,11 @@ pub struct WildcardHostGuard {
 impl Guard for WildcardHostGuard {
     fn check(&self, ctx: &GuardContext<'_>) -> bool {
         debug!("wildcard_host_guard: head() {:?}", ctx.head());
-        let Some(req_host_uri) = get_host_uri(ctx.head()) else {
+        let Some(host) = get_uri_host(ctx.head()) else {
             return false;
         };
 
-        debug!(
-            "wildcard_host_guard: uri_host.host() {:?}",
-            req_host_uri.host()
-        );
-        matches!(req_host_uri.host(), Some(uri_host) if uri_host.ends_with(&*self.host))
+        debug!("wildcard_host_guard: uri_host {host:?}");
+        host.ends_with(&*self.host)
     }
 }
