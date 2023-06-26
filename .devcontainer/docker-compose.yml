@@ -6,9 +6,8 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     extra_hosts:
-      - "proxy.armandmgt.me:127.0.0.1"
-      - "test.proxy.armandmgt.me:127.0.0.1"
-      - "test2.proxy.armandmgt.me:127.0.0.1"
+      - "test.exposed:127.0.0.1"
+      - "test2.exposed:127.0.0.1"
 
   db:
     image: postgres:15-alpine
