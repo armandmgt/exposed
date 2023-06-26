@@ -3,7 +3,6 @@ use crate::errors::AppError;
 use crate::errors::AppResponse;
 use crate::settings::Settings;
 use crate::util::extract_subdomain;
-use actix_web::dev::RequestHead;
 use actix_web::http::header::HeaderMap;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::CONNECTION;
@@ -13,7 +12,6 @@ use actix_web::http::header::TE;
 use actix_web::http::header::TRAILER;
 use actix_web::http::header::TRANSFER_ENCODING;
 use actix_web::http::header::X_FORWARDED_FOR;
-use actix_web::http::uri::Parts;
 use actix_web::http::Uri;
 use actix_web::HttpResponseBuilder;
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -113,7 +111,7 @@ pub async fn process(
         .request_from(req.uri(), req.head())
         .no_decompress()
         .timeout(Duration::from_secs(10))
-        .uri(forward_uri_value(&connection, &req.uri())?)
+        .uri(forward_uri_value(&connection, req.uri())?)
         .insert_header_if_none((actix_web::http::header::USER_AGENT, ""))
         .append_header((X_FORWARDED_FOR, x_forwarded_for_value(&req)));
 
