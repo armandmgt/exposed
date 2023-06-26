@@ -1,12 +1,10 @@
 version: '3.9'
 
 services:
-  dev:
+  exposed:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-    networks:
-      - exposed_dev
     extra_hosts:
       - "proxy.armandmgt.me:127.0.0.1"
       - "test.proxy.armandmgt.me:127.0.0.1"
@@ -19,13 +17,8 @@ services:
       - POSTGRES_USER=dev
       - POSTGRES_PASSWORD=dev
       - POSTGRES_DB=expose
-    networks:
-      - exposed_dev
     volumes:
       - db_data:/var/run/postgresql/data
 
 volumes:
   db_data:
-
-networks:
-  exposed_dev:

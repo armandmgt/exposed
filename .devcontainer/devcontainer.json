@@ -1,7 +1,7 @@
 {
 	"name": "Rust",
 	"dockerComposeFile": "docker-compose.yml",
-	"service": "dev",
+	"service": "exposed",
 	"overrideCommand": true,
 	"customizations": {
 		"vscode": {
