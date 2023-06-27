@@ -1,3 +1,4 @@
+mod conf;
 mod connections;
 mod errors;
 mod home;
@@ -67,6 +68,7 @@ async fn main() -> Result<()> {
             ))
             .wrap(middleware::Compress::default())
             .configure(|cfg| home::controller::urls(&shared_settings, cfg))
+            .configure(|cfg| conf::controller::urls(&shared_settings, cfg))
             .configure(|cfg| connections::controller::urls(&shared_settings, cfg))
             .configure(|cfg| proxy::controller::urls(&shared_settings, cfg))
     })

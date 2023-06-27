@@ -50,6 +50,8 @@ pub enum AppError {
     Awc(#[from] awc::error::SendRequestError),
     #[error("serde_json error {0}")]
     SerdeJson(#[from] serde_json::Error),
+    #[error("russh error {0}")]
+    Russh(#[from] russh_keys::Error),
     #[error("not found")]
     NotFound,
     #[error(transparent)]
