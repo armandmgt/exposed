@@ -1,6 +1,6 @@
 use crate::errors::AppResponse;
 use crate::settings::Settings;
-use actix_web::{delete, get, guard, post, web, HttpResponse};
+use actix_web::{delete, get, guard, http::header, post, web, HttpResponse};
 use anyhow::Context;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -72,12 +72,9 @@ pub fn urls(settings: &Settings, cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/connections")
             .guard(guard::Host(api_host.to_string()))
-            .service(
-                web::scope("")
-                    .guard(guard::Header("Content-Type", "application/json"))
-                    .service(index)
-                    .service(create)
-                    .service(delete),
-            ),
+            .guard(guard::Header(header::ACCEPT.as_str(), "application/json"))
+            .service(index)
+            .service(create)
+            .service(delete),
     );
 }

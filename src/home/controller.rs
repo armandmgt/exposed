@@ -1,4 +1,4 @@
-use actix_web::{get, guard, web, HttpResponse};
+use actix_web::{get, guard, http::header, web, HttpResponse};
 use askama::Template;
 
 use crate::{errors::AppResponse, home::views, settings::Settings};
@@ -20,6 +20,7 @@ pub fn urls(settings: &Settings, cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("")
             .guard(guard::Host(api_host.to_string()))
+            .guard(guard::Header(header::ACCEPT.as_str(), "text/html"))
             .service(index),
     );
 }

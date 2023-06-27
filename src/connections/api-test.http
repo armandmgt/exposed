@@ -1,10 +1,15 @@
-GET http://proxy.armandmgt.me:8080/connections
+GET http://exposed:8080/
+Accept: text/html
+
+###
+
+GET http://exposed:8080/connections
 Content-Type: application/json
 Accept: application/json
 
 ###
 
-POST http://proxy.armandmgt.me:8080/connections
+POST http://exposed:8080/connections
 Content-Type: application/json
 Accept: application/json
 
@@ -15,6 +20,6 @@ Accept: application/json
 
 ###
 
-DELETE http://proxy.armandmgt.me:8080/connections/f810c5a7-4b14-4561-88c5-20494a45bcae
+DELETE http://exposed:8080/connections/f810c5a7-4b14-4561-88c5-20494a45bcae
 Content-Type: application/json
 Accept: application/json
