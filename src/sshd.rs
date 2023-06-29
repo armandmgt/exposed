@@ -7,6 +7,7 @@ use sqlx::PgPool;
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
+use subtle::ConstantTimeEq;
 
 use crate::{
     connections::models::Connection, errors::StaticError, settings::Settings,
@@ -98,7 +99,11 @@ impl server::Handler for Server {
         _user: &str,
         _password: &str,
     ) -> Result<(Self, Auth), Self::Error> {
-        Ok((self, Auth::Accept))
+        if _password.as_bytes().ct_eq(self.settings.http.secret.as_bytes()).unwrap_u8() == 1 {
+            Ok((self, Auth::Accept))
+        } else {
+            Ok((self, Auth::Reject { proceed_with_methods: None }))
+        }
     }
 
     async fn tcpip_forward(
