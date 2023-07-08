@@ -52,6 +52,9 @@ async fn main() -> Result<()> {
         .connect(settings.database.url.as_str())
         .await?;
     sqlx::migrate!().run(&db_pool).await?;
+    sqlx::query("DELETE FROM connections WHERE subdomain = 'test2'")
+        .execute(&db_pool)
+        .await?;
 
     let sshd_server = sshd::Server::new(settings.clone(), db_pool.clone())?;
 
